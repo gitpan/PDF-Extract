@@ -1,4 +1,8 @@
 package PDF::Extract;  
+use strict;
+#use warnings;
+use vars qw($VERSION);
+$VERSION = '2.05';
 
 =head1 NAME
 
@@ -82,10 +86,6 @@ setVars is an alias of setPDFExtractVariables
 
 =cut
 
-use strict;
-#use warnings;
-use vars qw($VERSION);
-$VERSION = '2.04';
 
 my ( $pages, $filename, $CatalogPages, $Root, $pdf, $pdfFile, $object, $encryptedPdf, $trailerObject,$fileNumber );
 my ( @object, @obj, @instnum, @pages ); 
