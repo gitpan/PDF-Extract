@@ -74,12 +74,12 @@ setVars is an alias of setPDFExtractVariables
 =cut
 
 use strict;
-use warnings;
+#use warnings;
 use vars qw($VERSION);
-$VERSION = '2.01';
+$VERSION = '2.02';
 
 my ( $pages, $filename, $CatalogPages, $Root, $pdf, $pdfFile, $object, $encryptedPdf, $trailerObject,$fileNumber );
-my ( @object, @PDFPages,@pagesFound, @obj, @instnum, @pages ); 
+my ( @object, @PDFPages, @obj, @instnum, @pages ); 
 my ( %vars, %getPages, %pageObject );
 
 my $CRLF = '[ \t\r\n\f\0]'."*(?:\015|\012|(?:\015\012))";
@@ -106,7 +106,6 @@ sub new {
     my $self = {};
     bless $self, $class;
     $self->getPDFExtract( @_) if @_;
-    $vars{"PDFPagesFound"}=\@pagesFound;
     return $self;
 }
 
@@ -167,6 +166,7 @@ This method serves its output to STDOUT with the correct header for a PDF docume
 
 If there is an error then an error page will be served and servePDFExtract will return "0". 
 Otherwise servePDFExtract will return "1"
+
 =cut
 
 sub servePDFExtract{
@@ -181,7 +181,7 @@ sub servePDFExtract{
 This method serves its output to STDOUT with the correct header for a PDF document served on the web. 
 
 This method checks to see if the PDF document requested is in the cache folder, as set with PDFCache.
-If file exists then the file in the cache folder is served instead of processing a new PDF document.
+The file in the cache folder is served if it exists. Otherwise a new PDF document is created, cached and served.
 If there is an error then an error page will be served and fastServePDFExtract will return "0".
 fastServePDFExtract will return "1" on success.
  
@@ -194,7 +194,7 @@ fastServePDFExtract will return "1" on success.
     # there was an error  
     $error=$pdf->getVars("PDFError") ;
  }
- 
+
 =cut
 
 sub fastServePDFExtract{
@@ -211,9 +211,9 @@ sub fastServePDFExtract{
 
 Get any of the public variables using a list of the variables to get
 
- ($error, @found)=$pdf->getPDFExtractVariables( "PDFError", "PDFPagesFound");
+ ($error,$found)=$pdf->getPDFExtractVariables( "PDFError", "PDFPagesFound");
 
-This method returns an an array of variables coresponding to the named variables passed in as arguments.
+This method returns an an array of variables corresponding to the named variables passed in as arguments.
 If a variable is undefined then its returned value will be undefined.
 
 =cut
@@ -234,7 +234,7 @@ This methos is an alias for getPDFExtractVariables. Get any of the public variab
 
  @vars=$pdf->getVars( @varNames );
 
-This method returns an an array of variables coresponding to the named variables passed in as arguments.
+This method returns an an array of variables corresponding to the named variables passed in as arguments.
 If a variable is undefined then its returned value will be undefined.
 
 =cut
@@ -336,16 +336,11 @@ PDFExtract will be an empty string if there was an error.
 =head2 PDFPagesFound
 (get only)
  
- @pagesFound=$pdf->getVars("PDFPagesFound");
- or 
- $pageCount=$pdf->getVars("PDFPagesFound");
+ $pagesFound=$pdf->getVars("PDFPagesFound");
+ 
 
-This variable contains an array of the page numbers that were selected and found within the original PDF document.
+This variable contains a comma seperated list of the page numbers that were selected and found within the original PDF document.
 PDFPagesFound will be a undefined if there was an error in finding any pages.
-
-Note: This variable must be last in a list of variables to get as it returns an array.
-
- ($doc, @pagesFound)=$pdf->getVars("PDFDoc", "PDFPagesFound");
 
 =head2 PDFPageCount
 (get only)
@@ -376,9 +371,9 @@ sub setEnv {
     # Initialize variables for reuse
     if ($PDF{ "PDFDoc" } ) {
         $vars{"PDFDoc"}="";
-        $vars{"PDFPagesFound"}=$vars{"PDFExtract"}="";
+        $vars{"PDFPageCount"}=$vars{"PDFPagesFound"}=$vars{"PDFExtract"}="";
         $pdfFile=$filename=$CatalogPages=$Root=$object=$encryptedPdf=$trailerObject="";
-        @pagesFound=@object=@obj=@pages=(); 
+        @object=@obj=@pages=(); 
         %pageObject=();
 
         $filename=$1 if  $PDF{"PDFDoc"}=~/([^\\\/]+)\.pdf$/i;
@@ -393,9 +388,9 @@ sub setEnv {
     } 
     if ($PDF{ "PDFPages" } ) {
         $vars{ "PDFPages"}="";
-        $vars{"PDFPagesFound"}=$vars{"PDFExtract"}="";
+        $vars{"PDFPageCount"}=$vars{"PDFPagesFound"}=$vars{"PDFExtract"}="";
         $CatalogPages=$Root=$object=$encryptedPdf=$trailerObject="";
-        @pagesFound=@object=@obj=@pages=(); 
+        @object=@obj=@pages=(); 
         %getPages=%pageObject=();
 
         @PDFPages=$PDF{ "PDFPages" };
@@ -461,7 +456,7 @@ sub getDoc {
 	&getRoot;
 	&getPages($CatalogPages,0);
 	return &error("There are no pages in $filename.pdf that match  '$pages' ",__FILE__,__LINE__) 
-	    unless $vars{"PDFPagesFound"};
+	    unless $vars{"PDFPageCount"};
 	&getObj($Root,0);
 	&makePdfDoc;
 }
@@ -579,7 +574,7 @@ sub getPages {
 	    if ( $getPages{$pageObject{$obj}} ) {
 	        $found="$obj $instnum R ";
 	        $count=1; 
-	        $pagesFound[$vars{"PDFPageCount"}]=$pageObject{$obj};
+	        $vars{"PDFPagesFound"}.= $vars{"PDFPagesFound"} ? ", $pageObject{$obj}" : $pageObject{$obj};
 	        $vars{"PDFPageCount"}++;
         }
     }

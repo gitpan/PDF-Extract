@@ -36,6 +36,9 @@ DEPENDENCIES
 There are no dependencies
 
 HISTORY
+version 2.02
+Turned off warnings
+
 version 2.01
 Rationalised the set and get methods.
 Simplified the variable names, made them smaller.
