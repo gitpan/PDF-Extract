@@ -36,6 +36,15 @@ DEPENDENCIES
 There are no dependencies
 
 HISTORY
+version 2.01
+Rationalised the set and get methods.
+Simplified the variable names, made them smaller.
+This version is not compatible with earlier versions.
+
+
+version 1.03
+Made compatable with Ghostscript output
+Tested and working on Free BSD and Windows 2k
 
 version 1.02
 Fixed a blunder in the Synopsis of the documentation.

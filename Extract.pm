@@ -2,7 +2,7 @@ package PDF::Extract;
 
 =head1 NAME
 
-PDF::Extract - Extracting sub PDF documents from a multipage PDF document
+PDF::Extract - Extracting sub PDF documents from a multi page PDF document
 
 =head1 SYNOPSIS
 
@@ -15,8 +15,8 @@ or
  use PDF::Extract;
  $pdf = new PDF::Extract( PDFDoc=>'C:/my.pdf' );
  $pdf->getPDFExtract( PDFPages=>@PDFPages );
- print "Content-Type text/plain\n\n<pre>",  $pdf->getPDFExtractOut;
- print $pdf->getPDFExtractError;
+ print "Content-Type text/plain\n\n<xmp>",  $pdf->getVars("PDFExtract");
+ print $pdf->getVars("PDFError");
 
 =head1 DESCRIPTION
 
@@ -49,22 +49,40 @@ These four main methods can be called with or without arguments. The methods
 will not work unless they know the location of the original PDF document and the 
 pages to extract. There are no default values.
 
+There are four other methods that deal with setting and getting the public variables.
+
+=over 4
+
+=item * 
+
+getPDFExtractVariables can return an array of variables. 
+
+=item * 
+
+getVars is an alias of getPDFExtractVariables
+
+=item * 
+
+setPDFExtractVariables can set the public variables. 
+
+=item * 
+
+setVars is an alias of setPDFExtractVariables
+
+=back
+
 =cut
 
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '1.02';
-
-my $PDFExtractError;                    # A discription and location of an Error in processing PDF Page
-my $PDFExtractFound;                  # Number of pages found in document
-my $PDFExtractOut;                      # The PDF Pages output if any
-my $PDFExtractCachePath;           # The cache path passed to PDFExtract
-my $PDFExtractDoc;                     # The location of the source PDF Doc
+$VERSION = '2.01';
 
 my ( $pages, $filename, $CatalogPages, $Root, $pdf, $pdfFile, $object, $encryptedPdf, $trailerObject,$fileNumber );
-my ( @object, @PDFPages, @obj, @instnum, @pages ); 
-my ( %getPages, %pageObject );
+my ( @object, @PDFPages,@pagesFound, @obj, @instnum, @pages ); 
+my ( %vars, %getPages, %pageObject );
+
+my $CRLF = '[ \t\r\n\f\0]'."*(?:\015|\012|(?:\015\012))";
 
 # ----------------------------------------------------------- The Public Methods --------------------------------------------------------------
 
@@ -88,21 +106,22 @@ sub new {
     my $self = {};
     bless $self, $class;
     $self->getPDFExtract( @_) if @_;
+    $vars{"PDFPagesFound"}=\@pagesFound;
     return $self;
 }
 
 =head2 getPDFExtract
 
 This method is the main workhorse of the package. It does all the PDF processing
-and sets PDFExtractError if its unable to create a new PDF document. It requires
+and sets PDFError if its unable to create a new PDF document. It requires
 PDFDoc and PDFPages to be set either in this call of before to function. 
-It outputs a PDF document as a string or an empty string if there is an error.
+It outputs a PDF document as a string or a "0" if there is an error.
 
 To create an array of PDF documents, each consisting of a single page, 
 from a multi page PDF document.
 
-  $pdf = new PDF::Pages( PDFDoc=>'C:/my.pdf' );
-  while ( $pdf[$i]=$pdf->getPDFExtract( PDFPages=>++$i ) );
+ $pdf = new PDF::Extract( PDFDoc=>'C:/my.pdf' );
+ while ( $pdf[$i]=$pdf->getPDFExtract( PDFPages=>++$i ) );
 
 The lowest valid page number for PDFPages is 1. A value of 0 will produce no 
 output and raise an error. An error will be raised if the PDFPages value does
@@ -111,195 +130,284 @@ not correspond to any pages.
 =cut
 
 sub getPDFExtract{                   
-	&getEnv(@_);    
+	&setEnv(@_);    
 	&getDoc;
-    $PDFExtractOut;
+    $vars{"PDFExtract"} ? $vars{"PDFExtract"} : 0;
 }
 
 =head2  savePDFExtract
 
-This method saves its output to what ever PDFExtractCache is set to. 
-The new file name will be an amalgam of the original filename, the page numbers of the extracted pages separated with an underscore "_" and the .pdf file type suffix.
- 
-  $pdf = new PDF::Pages;
-  $pdf->savePDFExtract(PDFPage=>"1 3-5", PDFDoc=>'C:/my.pdf', PDFExtractCache=>"C:/myCache" );
+This method saves its output to the directory defined for PDFCache. 
+The new PDF's filename will be an amalgam of the original filename, the requested page numbers separated with an 
+underscore "_" for individual pages,  ".." for a range of pages and the .pdf file type suffix.
 
-The saved PDF location and file name will be "C:/myCache/my_1_3_4_5.pdf".
+ $pdf->savePDFExtract(PDFPages=>"1 3-5", PDFDoc=>'C:/my.pdf', PDFCache=>"C:/myCache" );
+
+If there is an error then an error page will be served and savePDFExtract will return a "0". 
+Otherwise savePDFExtract will return "1" and the saved PDF location and file name will be "C:/myCache/my1_3..5.pdf".
 
 =cut
 
+
 sub savePDFExtract{
-	&getEnv(@_);    
+	&setEnv(@_);    
 	&getDoc;
 	&savePdfDoc;
-	$PDFExtractError ? "" : 1;
+	$vars{"PDFError"} ? 0 : 1;
 }
 
 =head2  servePDFExtract
 
 This method serves its output to STDOUT with the correct header for a PDF document served on the web. 
-The served file's name will be an amalgam of the original filename, the page numbers of the extracted pages separated with an underscore "_" and the .pdf file type suffix.
-If there is an error then an error page will be served.
- 
-  $pdf = PDF::Pages->new;
-  $pdf->servePDFExtract( PDFDoc=>'C:/my.pdf', PDFPage=>1);
 
-The file name of the served file will be "my_1.pdf".
+ $pdf = PDF::Extract->new(
+            PDFDoc=>'C:/my.pdf', 
+            PDFErrorPage=>"C:/myErrorPage.html" );
+ $pdf->servePDFExtract( PDFPages=>1);
 
+If there is an error then an error page will be served and servePDFExtract will return "0". 
+Otherwise servePDFExtract will return "1"
 =cut
 
 sub servePDFExtract{
-    &getEnv(@_);    
+    &setEnv(@_);    
     &getDoc;
     &uploadPDFDoc;
-	$PDFExtractError ? "" : 1;
+	$vars{"PDFError"} ? 0 : 1;
 }
 
 =head2  fastServePDFExtract
 
 This method serves its output to STDOUT with the correct header for a PDF document served on the web. 
-The served file's name will be an amalgam of the original filename, the page numbers of the extracted pages separated with an underscore "_" and the .pdf file type suffix.
-This method also checks to see if the PDF document requested is in the cache folder, as set with PDFExtractCache.
-If it exists then this file is served instead of processing a new PDF document.
-If there is an error then an error page will be served.
+
+This method checks to see if the PDF document requested is in the cache folder, as set with PDFCache.
+If file exists then the file in the cache folder is served instead of processing a new PDF document.
+If there is an error then an error page will be served and fastServePDFExtract will return "0".
+fastServePDFExtract will return "1" on success.
  
-  $pdf = new PDF::Pages(PDFExtractCache=>"C:/myCache" );
-  $pdf->fastServePDFExtract( PDFDoc=>'C:/my.pdf', PDFPage=>1);
-
-The file name of the served file will be "my_1.pdf".
-
+ $pdf->setVars(
+            PDFDoc=>'C:/my.pdf', 
+            PDFCache=>"C:/myCache", 
+            PDFErrorPage=>"C:/myErrorPage.html",
+            PDFPages=>1);
+ unless ($pdf->fastServePDFExtract ) {   
+    # there was an error  
+    $error=$pdf->getVars("PDFError") ;
+ }
+ 
 =cut
 
 sub fastServePDFExtract{
-	&getEnv(@_);    
-	&redirect if -e "$PDFExtractCachePath/$filename.pdf";
+	&setEnv(@_);    
+	&redirect if -e "$vars{\"PDFCache\"}/$filename.pdf";
 	&getDoc;
 	&savePdfDoc;
 	&redirect;
 	&uploadPDFDoc;
-	$PDFExtractError ? "" : 1;
+	$vars{"PDFError"} ? 0 : 1;
 }
 
-=head2 getPDFExtractError
+=head2 getPDFExtractVariables
 
- $pdf->getPDFExtractError;
+Get any of the public variables using a list of the variables to get
 
-This method returns an error message if there is one.
-An error is set if the output from any other method is an empty string.
+ ($error, @found)=$pdf->getPDFExtractVariables( "PDFError", "PDFPagesFound");
 
-The error message is comprised of a short description, a file and the line number 
-of where the error was detected. 
+This method returns an an array of variables coresponding to the named variables passed in as arguments.
+If a variable is undefined then its returned value will be undefined.
 
 =cut
 
-sub getPDFExtractError {   # $PDFExtractError is set when no output
-    $PDFExtractError;
+sub getPDFExtractVariables {   
+    my @var;
+    my $i;
+    shift;
+    foreach my $key (@_) {
+     $var[$i++]=$vars{$key};  
+    }
+    @var;
 }
 
-=head2 getPDFExtractDoc
+=head2 getVars
 
- $pdf->getPDFExtractDoc;
+This methos is an alias for getPDFExtractVariables. Get any of the public variables using a list of the variables to get
 
-This method returns the last original PDF document accessed by getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract.
-getPDFExtractDoc will return an empty string if there was an error.
+ @vars=$pdf->getVars( @varNames );
+
+This method returns an an array of variables coresponding to the named variables passed in as arguments.
+If a variable is undefined then its returned value will be undefined.
 
 =cut
 
-sub getPDFExtractDoc {
-    $PDFExtractDoc;
+sub getVars {   
+    &getPDFExtractVariables(@_);
 }
 
-=head2 getPDFExtractOut
+=head2 setPDFExtractVariables
 
- $pdf->getPDFExtractOut;
+Set any of the public variables using a hash of the variables and their values.
 
-This method returns the last PDF document processed by getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract.
-getPDFExtractOut will return an empty string if there was an error.
+ ($doc,$pages)=$pdf->setPDFExtractVariables(PDFDoc=>'C:/my.pdf', PDFPages=>1);
+
+This method sets the variables specified in the argument hash. 
+They return an array of the new values set.
 
 =cut
 
-sub getPDFExtractOut {
-    $PDFExtractOut;
+sub setPDFExtractVariables {
+    &setEnv( @_ );
+    shift;
+    my %var=@_;
+    &getVars( undef, keys %var);
 }
 
-=head2 getPDFExtractCachePath
+=head2 setVars
 
- $pdf->getPDFExtractCachePath;
+This methos is an alias for setPDFExtractVariables. Set any of the public variables using a hash of the variables and their values.
 
-This method returns the path to the PDF document cache. This value is required by savePDFExtract and fastServePDFExtract method calls.
-getPDFExtractCachePath will return an empty string if there was an error in setting the value.
+ @vars=$pdf->setVars( %vars );
+
+This method sets the variables specified in the argument hash. 
+They return an array of the new values set.
 
 =cut
 
-sub getPDFExtractCachePath {
-    $PDFExtractCachePath;
+sub setVars {   
+    &setPDFExtractVariables(@_);
 }
 
-=head2 setPDFExtractCachePath
+=head1 VARIABLES
 
- $pdf->setPDFExtractCachePath("C:\myCache");
+=head2 PDFDoc 
+(set and get)
 
-This method returns the path to the PDF document cache. This value is required by savePDFExtract and fastServePDFExtract method calls.
-setPDFExtractCachePath will return an empty string if there was an error in setting the value.
+ $file=$pdf->getVars("PDFDoc");
+
+This variable contains the path to the last original PDF document accessed by 
+getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract.
+PDFDoc will be an empty string if there was an error.
+
+=head2 PDFPages
+(set and get)
+ 
+ $pages=$pdf->setVars("PDFPages"=>"1 18-23");
+ or
+ $pages=$pdf->getVars("PDFPages");
+
+This variable contains a list of pages to extract from the original PDF document accessed by 
+getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract.
+
+=head2 PDFCache
+(set and get)
+
+ $cachePath=$pdf->setVars("PDFCache"=>"C:/myCache");
+ or
+ $cachePath=$pdf->getVars("PDFCache");
+
+This variable contains the path to the PDF document cache. This value is required by 
+savePDFExtract and fastServePDFExtract method calls.
+PDFCache will be an empty string if there was an error in setting the value.
+
+=head2 PDFErrorPage
+(set and get)
+
+ $errorPagePath=$pdf->setVars("PDFErrorPage"=>"C:/myError.html");
+ or
+ $errorPagePath=$pdf->getVars("PDFErrorPage");
+
+PDFErrorPage is a text file that can be used as a template for the error page.
+If the PDFErrorPage contains [PDFError], the word PDFError surrounded by square brackets, 
+then the error description will replace [PDFError].
+Otherwise you can devise a generic error description and describe remedial actions to be taken by the viewer.
+
+If this variable is not set then a default error page will be used.
+The default page has a message in red at the top,
+"There is system problem in processing your PDF Pages request.", 
+and then a description of the actual error follows underneath in black.
+
+=head2 PDFExtract 
+(get only)
+ 
+ $out=$pdf->getVars("PDFExtract");
+
+This variable contains the last PDF document processed by getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract.
+PDFExtract will be an empty string if there was an error.
+
+=head2 PDFPagesFound
+(get only)
+ 
+ @pagesFound=$pdf->getVars("PDFPagesFound");
+ or 
+ $pageCount=$pdf->getVars("PDFPagesFound");
+
+This variable contains an array of the page numbers that were selected and found within the original PDF document.
+PDFPagesFound will be a undefined if there was an error in finding any pages.
+
+Note: This variable must be last in a list of variables to get as it returns an array.
+
+ ($doc, @pagesFound)=$pdf->getVars("PDFDoc", "PDFPagesFound");
+
+=head2 PDFPageCount
+(get only)
+ 
+ $pageCount=$pdf->getVars("PDFPageCount");
+
+This variable contains the number of the pages that were selected and found within the original PDF document.
+PDFPageCount will be an empty string if there was an error in finding any pages.
+
+=head2 PDFError
+(get only)
+
+ $error=$pdf->getVars("PDFError");
+
+This variable contains a string describing the errors if any in processing the original PDF file.
+PDFError is guarenteed to be set if  getPDFExtract, savePDFExtract, servePDFExtract or fastServePDFExtract fail and return a "0".
+PDFError will be an empty string if there was no error.
 
 =cut
 
-sub setPDFExtractCachePath {
-    my (undef,  $var)=@_;
-    &Env( "PDFExtractCache", $var ) if $var;
-    $PDFExtractCachePath;
-}
-
-=head2 getPDFExtractFound
-
- $pdf->getPDFExtractFound;
-
-This method returns a string representing the pages that were selected and found within the original PDF document.
-getPDFExtractFound will return an empty string if there was an error in setting the value.
-
-=cut
-
-sub getPDFExtractFound {
-    $PDFExtractFound;
-}
 
 # ----------------------------------------------------------- The Private Functions --------------------------------------------------------------
 
-sub getEnv {
+sub setEnv {
     my (undef,  %PDF)=@_;
     my $requestedPages=0;
-    $PDFExtractError="";
+    $vars{"PDFError"}="";
     # Initialize variables for reuse
     if ($PDF{ "PDFDoc" } ) {
-    
-        $PDFExtractFound=$PDFExtractOut="";
+        $vars{"PDFDoc"}="";
+        $vars{"PDFPagesFound"}=$vars{"PDFExtract"}="";
         $pdfFile=$filename=$CatalogPages=$Root=$object=$encryptedPdf=$trailerObject="";
-        @object=@obj=@pages=(); 
+        @pagesFound=@object=@obj=@pages=(); 
         %pageObject=();
-        
-        $PDFExtractDoc=$PDF{ "PDFDoc" };
-        $filename=$1 if  $PDFExtractDoc=~/([^\\\/]+)\.pdf$/i;
-        return  &error(" PDF document \"$filename\" not found",__FILE__,__LINE__) unless -f $PDFExtractDoc;
+
+        $filename=$1 if  $PDF{"PDFDoc"}=~/([^\\\/]+)\.pdf$/i;
+        return  &error(" PDF document \"$filename\" not found",__FILE__,__LINE__) unless -f $PDF{"PDFDoc"};
 	    $\="\r";
-	    return &error( "Can't open $PDFExtractDoc to read\n",__FILE__,__LINE__) unless  open FILE, $PDFExtractDoc;
+	    return &error( "Can't open $PDF{\"PDFDoc\"} to read\n",__FILE__,__LINE__) unless  open FILE, $PDF{"PDFDoc"};
 		binmode FILE;
 		$pdfFile = join('', <FILE>);
 		close FILE;
+        $vars{"PDFDoc"}=$PDF{"PDFDoc"};
 		
     } 
     if ($PDF{ "PDFPages" } ) {
-    
-        $PDFExtractFound=$PDFExtractOut="";
+        $vars{ "PDFPages"}="";
+        $vars{"PDFPagesFound"}=$vars{"PDFExtract"}="";
         $CatalogPages=$Root=$object=$encryptedPdf=$trailerObject="";
-        @object=@obj=@pages=(); 
+        @pagesFound=@object=@obj=@pages=(); 
         %getPages=%pageObject=();
 
         @PDFPages=$PDF{ "PDFPages" };
 		$pages=join " ", @PDFPages; 
 		my $pageError=$pages;
-		$pages=~s/ +/,/g;
+		$pages=~s/\.\./-/g;
+		$pages=~s/\.//g;
 		$pages=~s/\-/../g;
+		$pages=~s/ +/,/g;
 		$pages=~s/[^\d,\.]//g;                  # allow only numbers to be processed
+        $fileNumber=$pages;
+        $fileNumber=~s/,/_/g;
 		foreach my $page ( eval $pages ) {
 		    next unless int $page;
 	        $getPages{int $page}=1;
@@ -308,14 +416,23 @@ sub getEnv {
 	    return &error("Can't get PDF Pages. No page numbers were set with '$pages' ",__FILE__,__LINE__) unless $requestedPages;
 	    $pages="";
 	    foreach my $page ( sort  keys %getPages) { 
-	        $fileNumber.="_$page";
+	#        $fileNumber.="_$page";
 	        $pages.="$page, ";
 	    }
 	    $pages=~s/, $//;
+	    $vars{ "PDFPages"}=$pages;
 	 }
-	 if ($PDF{ "PDFExtractCache"} ) {
-        $PDFExtractCachePath=dir($PDF{ "PDFExtractCache"});
+	 if ($PDF{ "PDFCache"} ) {
+        $vars{"PDFCache"}=dir($PDF{ "PDFCache"});
 	 }
+	 if ($PDF{"PDFErrorPage"} ) {
+        $vars{"PDFErrorPage"}="";
+        return  &error(" PDF Error page template file \"$PDF{PDFErrorPage}\" not found",__FILE__,__LINE__) unless -f $PDF{ "PDFErrorPage"};
+	    return &error( "Can't open $PDF{PDFErrorPage} to read\n",__FILE__,__LINE__) unless  open FILE, $PDF{ "PDFErrorPage"};
+		$vars{"PDFErrorFile"} = join('', <FILE>);
+		close FILE;
+        $vars{"PDFErrorPage"}=$PDF{ "PDFErrorPage"};
+    } 
 }
 
 sub dir {
@@ -329,7 +446,7 @@ sub dir {
 		#   print "$dir\n";
 	}
 	$path=~s/\//\\/g;
-	return &error("This Cache/Save path \"$path\" can't be created",__FILE__,__LINE__) 
+	return &error("This Cache path \"$path\" can't be created",__FILE__,__LINE__) 
 	    unless -d $path;
 	$path;
 }
@@ -339,35 +456,35 @@ sub redirect {
 }
 
 sub getDoc {
-    return if $PDFExtractOut;
+    return if $vars{"PDFExtract"};
 	return &error("There is no pdf document to extract pages from",__FILE__,__LINE__) unless $pdfFile;   
 	&getRoot;
 	&getPages($CatalogPages,0);
 	return &error("There are no pages in $filename.pdf that match  '$pages' ",__FILE__,__LINE__) 
-	    unless $PDFExtractFound;
+	    unless $vars{"PDFPagesFound"};
 	&getObj($Root,0);
 	&makePdfDoc;
 }
 
 sub savePdfDoc {
-	return "" if $PDFExtractError;
-	return &error("Can't open $PDFExtractCachePath/$filename$fileNumber.pdf\n",__FILE__,__LINE__) 
-	    unless open FILE, ">$PDFExtractCachePath/$filename$fileNumber.pdf";
+	return "" if $vars{"PDFError"};
+	return &error("Can't open $vars{'PDFCache'}/$filename$fileNumber.pdf",__FILE__,__LINE__) 
+	    unless open FILE, ">$vars{'PDFCache'}/$filename$fileNumber.pdf";
 	binmode FILE;
-	print FILE $PDFExtractOut;
+	print FILE $vars{"PDFExtract"};
 	close FILE;
 }	
 
 sub uploadPDFDoc {
-    return &servError("") if $PDFExtractError;
-    my $len=length $PDFExtractOut;
+    return &servError("") if $vars{"PDFError"};
+    my $len=length $vars{"PDFExtract"};
     return &servError("PDF output is null, No output",__FILE__,__LINE__) unless $len;
     print <<EOF;
 Content-Disposition: inline; filename=$filename$fileNumber.pdf
 Content-Length: $len
 Content-Type: application/pdf
 
-$PDFExtractOut
+$vars{"PDFExtract"}
 EOF
 }
 
@@ -376,41 +493,42 @@ EOF
 sub servError {
 	my ($error,$file,$line)=@_;
 	&error($error,$file,$line) if $error;
-	print <<EOF;
-	Content-Type: text/html
-	
-	<font color=red><h2>There is system problem in processing your PDF Pages request</h2></font>
-	<pre>ERROR: $PDFExtractError </pre>
-EOF
-	""
+	if ($vars{"PDFErrorPage"}) {
+	    $error=$vars{"PDFErrorFile"};
+	    $error=~s/\[PDFError\]/$vars{"PDFError"}/sg;
+	} else {
+	    $error="<font color=red><h2>There is system problem in processing your PDF Pages request</h2></font><xmp>ERROR: $vars{\"PDFError\"} </xmp>";
+    }
+	print "Content-Type: text/html\n\n$error";
+	"";
 }
 
 sub error {
 	my ($error,$file,$line)=@_;
-	$PDFExtractError.="$error\nat $file line $line\n";
-	""
+	$vars{"PDFError"}.="$error\nat $file line $line\n";
+	"";
 }
 
 #------------------------------------ PDF Page Routines --------------------------------------------
 sub getRoot {
-	return "" if $PDFExtractError;
+	return "" if $vars{"PDFError"};
 	return  if $Root;
 	$pdf=$pdfFile;
-    my $val=$1 if $pdf=~/(trailer\s+<<\s+.*?>>\s+)/s;
+    my $val=$1 if $pdf=~/(trailer\s*<<.*?>>\s*)/s;
     $Root=int $1 if $val=~/\/Root (\d+) 0 R/s;    
     $val=~s/\/Size \d+/\/Size __Size__/s;   # Size will change so put a place holder for new size
-    $val=~s/\/Prev.*?\r//s;                      # delete Prev reference if its there
+    $val=~s/\/Prev.*?$CRLF//s;                      # delete Prev reference if its there
     &getObj($1, $2 ) if $val=~/\/Info (\d+) (\d+) R/s;
     &getObj( $encryptedPdf=$1, $2 ) if $val=~/\/Encrypt (\d+) (\d+) R/s;
     $trailerObject=$val;
-    $val=$1 if $pdf=~/($Root 0 obj.*?endobj\s+)/;
+    $val=$1 if $pdf=~/\s($Root 0 obj.*?endobj\s+)/s;
     $CatalogPages=int $1 if $val=~/\/Pages (\d+) 0 R\s+/s;   
     $val="$Root 0 obj\r<< \r/Type /Catalog \r/Pages $CatalogPages 0 R \r>> \rendobj\r";
-    $pdf=~s/($Root 0 obj.*?endobj\s+)/$val/s; 
+    $pdf=~s/(\s)$Root 0 obj.*?endobj\s+/$1$val/s; 
 }
 
 sub getObj {
-	return "" if $PDFExtractError;
+	return "" if $vars{"PDFError"};
     my($obj,$instnum)=@_;
     unless ($obj[$obj] ) {
          if ($pdf=~/\s($obj $instnum obj.*?endobj\s)/s ) {
@@ -425,7 +543,7 @@ sub getObj {
 #	        $object[$obj]=~s/(\/Dest \[ \d+)==/$1 0/s; # Don't follow this path
 	        $object[$obj]=~s/\/Annots \[\s+\]\s+//s; # Delete empty Annots array
 	    } else {
-	        $PDFExtractError.="Can't find object $obj $instnum obj\n$pdf";
+	        &error("Can't find object $obj $instnum obj",__FILE__,__LINE__);
 	    }
     }
     "$obj 0 R";
@@ -434,18 +552,18 @@ sub getObj {
 sub uri {
     my($dest,$obj,$param)=@_;
     return "$dest$obj$param" if $getPages{ $pageObject{$obj} }; # page is in document    
-	#return "/A << /S /URI /URI ($web?PDFDoc%26$PDFExtractDoc&PDFExtract%26$pageObject{$obj})>> \r"
+	#return "/A << /S /URI /URI ($web?PDFDoc%26$vars{PDFDoc}&PDFExtract%26$pageObject{$obj})>> \r"
 	#    unless $encryptedPdf;
 	"";
 }
 
 sub getPages {
-	return "" if $PDFExtractError;
+	return "" if $vars{"PDFError"};
     my($obj, $instnum)=@_;
-    my $val=$1 if $pdf=~/($obj $instnum obj.*?endobj\s+)/;
+    my $val=$1 if $pdf=~/\s($obj $instnum obj.*?endobj\s+)/s;
     my $found="";
     my $count=0;
-    if ($val=~/\/Kids \[ (.*?)\]/s ) {     
+    if ($val=~/\/Kids \[\s*(.*?)\]/s ) {     
         my $kids=$1;
         $kids=~s/\s+/ /gs;
         foreach my $kid (split " R ", $kids) {      
@@ -453,47 +571,47 @@ sub getPages {
             $found.=$f;
             $count+=$c;
         }
-        $pdf=~s/($obj $instnum obj.*?\/Kids \[).*?\]/$1 $found\]/s;
-        $pdf=~s/($obj $instnum obj.*?\/Count )\d+/$1$count/s;
+        $pdf=~s/(\s$obj $instnum obj.*?\/Kids \[).*?\]/$1 $found\]/s;
+        $pdf=~s/(\s$obj $instnum obj.*?\/Count )\d+/$1$count/s;
         $found="$obj $instnum R " if $found;
     } else {
         $pageObject{$obj}=push @pages, $obj; # create a hash of all pages
 	    if ( $getPages{$pageObject{$obj}} ) {
-	    
 	        $found="$obj $instnum R ";
 	        $count=1; 
-	        $PDFExtractFound++;
+	        $pagesFound[$vars{"PDFPageCount"}]=$pageObject{$obj};
+	        $vars{"PDFPageCount"}++;
         }
     }
     ($found,$count);
 }
 
 sub makePdfDoc {                        
-	return "" if $PDFExtractError;
-	return &error("$PDFExtractDoc is not a PDF file",__FILE__,__LINE__) 
-	    unless $pdf=~s/^(.*?\r)/\r/;
-	$PDFExtractOut=$1;
-	$PDFExtractOut.=$1 while( $pdf=~s/^\r(\%.*?\r)/\r/); #include comment lines if any
-	my $xref="xxxxxxxxxx 65535 f\n";
+	return "" if $vars{"PDFError"};
+	return &error("$vars{PDFDoc} is not a PDF file \n$pdf",__FILE__,__LINE__) 
+	    unless $pdf=~s/^(.*?)($CRLF+)/$2/;
+	$vars{"PDFExtract"}=$1.$2;
+	$vars{"PDFExtract"}.=$1.$2 while( $pdf=~s/^\s+(\%.*?)($CRLF+)/$2/); #include comment lines if any
+	my $xref="xxxxxxxxxx 65535 f\r\f";
 	my $objCount=1;
 	for( ;$objCount<@object;$objCount++) {
 	    if ($object[$objCount]) {
-	        $xref.=sprintf("%0.10d %0.5d n\n",length $PDFExtractOut, $instnum[$objCount] );
-	        $PDFExtractOut.=$object[$objCount];
+	        $xref.=sprintf("%0.10d %0.5d n\015\012",length $vars{"PDFExtract"}, $instnum[$objCount] );
+	        $vars{"PDFExtract"}.=$object[$objCount];
 	    } else {
-	        $xref.="xxxxxxxxxx 00001 f\n"; 
+	        $xref.="xxxxxxxxxx 00001 f\015\012"; 
 	        my $x=sprintf("%0.10d",$objCount);
 	        $xref=~s/xxxxxxxxxx/$x/s;
 	    }
 	}
-	return &error("$PDFExtractDoc does not contain objects",__FILE__,__LINE__) 
+	return &error("$vars{PDFDoc} does not contain objects",__FILE__,__LINE__) 
 	    if $objCount==1;
 	$xref=~s/xxxxxxxxxx/0000000000/s;
-	my $startXref=length $PDFExtractOut;
-	$PDFExtractOut.="\rxref\r0 $objCount \r$xref";
+	my $startXref=length $vars{"PDFExtract"};
+	$vars{"PDFExtract"}.="\rxref\r0 $objCount \r$xref";
 	$trailerObject=~s/__Size__/$objCount/s;
-	$PDFExtractOut.="$trailerObject\rstartxref\r$startXref\r\%\%EOF\r";
-}   
+	$vars{"PDFExtract"}.="$trailerObject\rstartxref\r$startXref\r\%\%EOF\r";
+}
 
 =head1 AUTHOR
 
@@ -501,19 +619,26 @@ Noel Sharrock E<lt>mailto:nsharrok@lgmedia.com.auE<gt>
 
 PDF::Extract's home page http://www.lgmedia.com.au/PDF/Extract.asp
 
+=head1 SUPPORT
+
+Much thanks to Lyman Byrd for his welcome programming suggestions and editorial comments on the POD.
+
 =head1 COPYRIGHT
 
 Copyright (c) 2003 by Noel Sharrock. All rights reserved.
 
 =head1 LICENSE
 
-This package is free software; you can redistribute it and/or modify it under the same terms as Perl itself, i.e., under the terms of the ``Artistic License'' or the ``GNU General Public License''.
+This package is free software; you can redistribute it and/or modify it under the same terms as Perl itself, 
+i.e., under the terms of the ``Artistic License'' or the ``GNU General Public License''.
 
-The C library at the core of this Perl module can additionally be redistributed and/or modified under the terms of the ``GNU Library General Public License''.
+The C library at the core of this Perl module can additionally be redistributed and/or modified 
+under the terms of the ``GNU Library General Public License''.
 
 =head1 DISCLAIMER
 
-This package is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+This package is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the ``GNU General Public License'' for more details.
 
