@@ -1,0 +1,44 @@
+PDF/Extract version 0.01
+========================
+
+PDF Extract is a group of methods that allow the user to quickly grab pages
+as a new PDF document from a pre-existing multi page PDF document.
+
+With PDF::Extract a new PDF document can be.
+    assigned to a scalar variable with getPDFExtract.
+    saved to disk with savePDFExtract.
+    printed to STDOUT as a PDF web document with servePDFExtract.
+    cached and served for a faster PDF web document service with fastServePDFExtract.
+    
+These four main methods can be called with or without arguments. The methods 
+will not work unless they know the location of the original PDF document and the 
+pages to extract. There are no default values.
+
+As little as 3 lines of code can serve a dynamic PDF web document
+use PDF::Extract;
+$pdf = new PDF::Extract( PDFDoc =>"/docs/my.pdf", PDFPages =>"1-3 7"  ) ;
+$pdf->servePDFExtract;
+
+This module's home page is at http://www.lgmedia.com.au/PDF/Extract.asp
+
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+There are no dependencies
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2003 Noel Sharrock
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
+
