@@ -1,4 +1,4 @@
-PDF/Extract version 2.05
+PDF/Extract version 2.06
 ========================
 
 PDF Extract is a group of methods that allow the user to quickly grab pages
@@ -36,6 +36,10 @@ DEPENDENCIES
 There are no dependencies
 
 HISTORY
+version 2.06
+Stefano Capuzzimato corrected a problem with parsing spaces after endobj
+
+
 version 2.05
 Corrected a problem with the Makefile.pl
 

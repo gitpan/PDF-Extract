@@ -2,14 +2,14 @@ package PDF::Extract;
 use strict;
 #use warnings;
 use vars qw($VERSION);
-$VERSION = '2.05';
+$VERSION = '2.06';
 
 =head1 NAME
 
 PDF::Extract - Extracting sub PDF documents from a multi page PDF document
 
 =head1 SYNOPSIS
-
+
  use PDF::Extract;
  $pdf=new PDF::Extract;
  $pdf->servePDFExtract( PDFDoc=>"c:/Docs/my.pdf", PDFPages=>"1-3 31-36" );
@@ -36,7 +36,7 @@ $i++ while ( $pdf->savePDFExtract( PDFPages=>$i ) );
 PDF Extract is a group of methods that allow the user to quickly grab pages
 as a new PDF document from a pre-existing PDF document.
 
-With PDF::Extract a new PDF document can be:-
+With PDF::Extract a new PDF document can be:-
 
 =over 4
 
@@ -48,7 +48,7 @@ assigned to a scalar variable with getPDFExtract.
 
 saved to disk with savePDFExtract.
 
-=item * 
+=item * 
 
 printed to STDOUT as a PDF web document with servePDFExtract.
 
@@ -103,8 +103,8 @@ my $CRLF = '[ \t\r\n\f\0]'."*(?:\015|\012|(?:\015\012))";
 
 Creates a new Extract object with empty state information ready for processing
 data both input and output. New can be called with a hash array argument.
-
- new PDF::Extract( PDFDoc=>"c:/Docs/my.pdf", PDFPages=>"1-3 31-36" )
+
+ new PDF::Extract( PDFDoc=>"c:/Docs/my.pdf", PDFPages=>"1-3 31-36" )
 
 This will cause a new PDF document to be generated unless there is an error.
 Extract->new() simply calls getPDFExtract() if there is an argument.
@@ -162,11 +162,11 @@ Otherwise savePDFExtract will return "1" and the saved PDF location and file nam
 =cut
 
 
-sub savePDFExtract{
+sub savePDFExtract{
 	&setEnv(@_);    
 	&getDoc;
 	&savePdfDoc;
-	$vars{"PDFError"} ? 0 : 1;
+	$vars{"PDFError"} ? 0 : 1;
 }
 
 =head2  servePDFExtract
@@ -185,7 +185,7 @@ Otherwise servePDFExtract will return "1"
 
 sub servePDFExtract{
     &setEnv(@_);    
-    &getDoc;
+    &getDoc;
     &uploadPDFDoc;
 	$vars{"PDFError"} ? 0 : 1;
 }
@@ -215,7 +215,7 @@ fastServePDFExtract will return "1" on success.
 
 sub fastServePDFExtract{
 	&setEnv(@_);    
-	&redirect if -e "$vars{\"PDFCache\"}/$vars{\"PDFFilename\"} ";
+	&redirect if -e "$vars{\"PDFCache\"}/$vars{\"PDFFilename\"} ";
 	&getDoc;
 	&savePdfDoc;
 	&redirect;
@@ -306,7 +306,7 @@ PDFDoc will be an empty string if there was an error.
 =head2 PDFPages
 (set and get)
  
- $pages=$pdf->setVars( PDFPages =>"1 18-23");
+ $pages=$pdf->setVars( PDFPages =>"1 18-23");
  or
  $pages=$pdf->getVars("PDFPages");
 
@@ -348,9 +348,9 @@ The .pdf filename extension and any path informationwill be stripped from the va
 PDFFilename will contain the actual filename used for the last extracted pdf'.
 
 =head2 PDFErrorPage
-(set and get)
+(set and get)
 
- $errorPagePath=$pdf->setVars("PDFErrorPage"=>"C:/myError.html");
+ $errorPagePath=$pdf->setVars("PDFErrorPage"=>"C:/myError.html");
  or
  $errorPagePath=$pdf->getVars("PDFErrorPage");
 
@@ -363,7 +363,7 @@ If this variable is not set then a default error page will be used.
 The default page has a message in red at the top,
 "There is system problem in processing your PDF Pages request.", 
 and then a description of the actual error follows underneath in black.
-
+
 =head2 PDFExtract 
 (get only)
  
@@ -372,7 +372,7 @@ and then a description of the actual error follows underneath in black.
 This variable contains the last PDF document processed by getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract.
 PDFExtract will be an empty string if there was an error.
 
-=head2 PDFPagesFound
+=head2 PDFPagesFound
 (get only)
  
  $pagesFound=$pdf->getVars("PDFPagesFound");
@@ -393,7 +393,7 @@ PDFPageCount will be an empty string if there was an error in finding any pages.
 
 =head2 PDFFileName
 (get only)
-
+
  $filename=$pdf->getVars("PDFFilename");
  
 This variable will contain the actual filename.
@@ -401,18 +401,18 @@ If PDFSaveAs is unset the new PDF's filename will be an amalgam of the original 
 requested page numbers and the .pdf file type suffix. If more than one page is extracted into a new PDF 
 the page numbers will be separated with an underscore "_" for individual pages,  ".." for a range of pages.
 eg. my6.pdf for a single page (page 6) and my1_3..6.pdf  for a multi page PDF (pages 1, 3, 4, 5, 6).
-If PDFSaveAs is set then PDFSaveAs will be used to construct PDFFilename.
+If PDFSaveAs is set then PDFSaveAs will be used to construct PDFFilename.
 The full path to the extracted pdf file can be obtained by - 
 
  $fullpath = $pdf->getVars("PDFCache") ."/". $pdf->getVars("PDFFilename");
  or
  ($path,$filename) = $pdf->getVars("PDFCache","PDFFilename");
-    
+    
 =head2 PDFError
 (get only)
 
  $error=$pdf->getVars("PDFError");
-
+
 This variable contains a string describing the errors if any in processing the original PDF file.
 PDFError is guarenteed to be set if  getPDFExtract, savePDFExtract, servePDFExtract or fastServePDFExtract fail and return a "0".
 PDFError will be an empty string if there was no error.
@@ -420,9 +420,9 @@ PDFError will be an empty string if there was no error.
 =head2 PDFDebug
 (set for method call duration only)
 
- $pdf->setVars(
+ $pdf->setVars(
             PDFDoc=>'C:\docs\pdf', 
-            PDFPages=>"2 6-8 ",
+            PDFPages=>"2 6-8 ",
             PDFDebug=>1);
 
 This really a directive and not a true variable. It is used to debug the setting of variables in a PDF::Extract method call.
@@ -431,7 +431,7 @@ PDFDebug as used above will print:-
  These variables are to be set
 	PDFDoc="C:\docs\pdf/"
 	PDFPages="2 6-8 "
-	PDFDebug="1"
+	PDFDebug="1"
  These variables have been set
 	PDFCache="C:/myCache"
 	PDFFilename="2_6..8_.pdf"
@@ -445,11 +445,11 @@ PDFDebug as used above will print:-
 =cut
 
 
-# ----------------------------------------------------------- The Private Functions --------------------------------------------------------------
+# ----------------------------------------------------------- The Private Functions --------------------------------------------------------------
 
 sub setEnv {
     my (undef,  %PDF)=@_;
-    my $requestedPages=0;
+    my $requestedPages=0;
     $vars{"PDFError"}="";
     if ($PDF{"PDFDebug"} ) {
         print "These variables are to be set\n";
@@ -477,13 +477,13 @@ sub setEnv {
         $pdfFile=$filename=$CatalogPages=$Root=$object=$encryptedPdf=$trailerObject="";
         @object=@obj=@pages=(); 
         %pageObject=();
-
+
         $filename=$1 if  $PDF{"PDFDoc"}=~/([^\\\/]+)\.pdf$/i;
         if ( -f $PDF{"PDFDoc"} ) {
-	        if (open FILE, $PDF{"PDFDoc"} ) {
+	        if (open FILE, $PDF{"PDFDoc"} ) {
 				binmode FILE;
 				$pdfFile = join('', <FILE>);
-				close FILE;
+				close FILE;
 		        $vars{"PDFDoc"}=$PDF{"PDFDoc"};
 		    } else {
 		        &error( "Can't open PDF document  $PDF{\"PDFDoc\"} to read\n",__FILE__,__LINE__);	    
@@ -498,7 +498,7 @@ sub setEnv {
         $CatalogPages=$Root=$object=$encryptedPdf=$trailerObject="";
         @object=@obj=@pages=(); 
         %getPages=%pageObject=();
-
+
 		$pages=$PDF{ "PDFPages" };
 		my $pageError=$pages;
 		$pages=~s/\.\./-/g;
@@ -517,10 +517,10 @@ sub setEnv {
 		    $pages="";
 		    foreach my $page ( sort  keys %getPages) { 
 		        $pages.="$page, ";
-		    }
+		    }
 		    $pages=~s/, $//;
 		    $vars{ "PDFPages"}=$pages;
-		} else {
+		} else {
 		    &error("Can't get PDF Pages. No page numbers were set with '$pages' ",__FILE__,__LINE__);
 		}
 	 }
@@ -531,7 +531,7 @@ sub setEnv {
         $vars{"PDFSaveAs"} = $PDF{"PDFSaveAs"};
         $vars{"PDFSaveAs"}=~s/\.pdf$//i;    # just want the name, not the path and not the .pdf tag
         $vars{"PDFSaveAs"}=~s/^.*[\/\\]//;
-     }
+     }
     $vars{"PDFFilename"}=$vars{"PDFSaveAs"} ? $vars{"PDFSaveAs"}.".pdf" : "$filename$fileNumber.pdf";
 
     if ( $PDF{"PDFDebug"} ) {
@@ -544,17 +544,17 @@ sub setEnv {
 
 sub dir {
 	my($path,$dir,@folders)=@_;
-	$path=~s/\\/\//g;
+	$path=~s/\\/\//g;
 	(@folders)=split "/", $path;
 	foreach my $folder (@folders) {
 		$dir.= $folder=~/:/ ? $folder : "/$folder";
-		next if $folder=~/:/;
+		next if $folder=~/:/;
 		mkdir $dir, 0x777 unless -d $dir;
 		#   print "$dir\n";
 	}
 	$path=~s/\//\\/g if $ENV{"OS"}=~/Windows/i;
 	return &error("This Cache path \"$path\" can't be created",__FILE__,__LINE__) 
-	    unless -d $path;
+	    unless -d $path;
 	$path;
 }
 
@@ -593,6 +593,7 @@ Content-Type: application/pdf\r
 \r
 $vars{"PDFExtract"}\r
 EOF
+
 }
 
 #------------------------------------ support  Routines --------------------------------------------
@@ -615,7 +616,7 @@ sub error {
 	$vars{"PDFError"}.="$error\nat $file line $line\n";
 	"";
 }
-
+
 #------------------------------------ PDF Page Routines --------------------------------------------
 sub getRoot {
 	return "" if $vars{"PDFError"};
@@ -628,17 +629,17 @@ sub getRoot {
     &getObj($1, $2 ) if $val=~/\/Info (\d+) (\d+) R/s;
     &getObj( $encryptedPdf=$1, $2 ) if $val=~/\/Encrypt (\d+) (\d+) R/s;
     $trailerObject=$val;
-    $val=$1 if $pdf=~/\D($Root 0 obj.*?endobj\s+)/s;
-    $CatalogPages=int $1 if $val=~/\/Pages (\d+) 0 R\s+/s;   
+    $val=$1 if $pdf=~/\D($Root 0 obj.*?endobj\s*)/s;#by Stefano Capuzzimato. There can be even no space after endobj (* instead of +)
+    $CatalogPages=int $1 if $val=~/\/Pages (\d+) 0 R\s*/s;
     $val="$Root 0 obj\n<<\n/Type /Catalog\n/Pages $CatalogPages 0 R\n>>\nendobj\n";# changed \r to \n for unixish systems by Alberto Accomazzi
-    $pdf=~s/(\D)$Root 0 obj.*?endobj\s+/$1$val/s; 
+    $pdf=~s/(\D)$Root 0 obj.*?endobj\s*/$1$val/s;#by Stefano Capuzzimato. There can be even no space after endobj (* instead of +)
 }
 
 sub getObj {
 	return "" if $vars{"PDFError"};
     my($obj,$instnum)=@_;
     unless ($obj[$obj] ) {
-         if ($pdf=~/\D($obj $instnum obj.*?endobj\s)/s ) {
+         if ($pdf=~/\D($obj $instnum obj.*?endobj\s*)/s ) {#by Stefano Capuzzimato. There can be even no space after endobj (* instead of +)
             $object = $1;
 #	        return "" if $object=~/\/GoToR/; # Don't want these link objects
             $obj[$obj]++;
@@ -667,10 +668,10 @@ sub uri {
 sub getPages {
 	return "" if $vars{"PDFError"};
     my($obj, $instnum)=@_;
-    my $val=$1 if $pdf=~/\s($obj $instnum obj.*?endobj\s+)/s;
+    my $val=$1 if $pdf=~/\s($obj $instnum obj.*?endobj\s*)/s;#by Stefano Capuzzimato. There can be even no space after endobj (* instead of +)
     my $found="";
     my $count=0;
-    if ($val=~/\/Kids \[\s*(.*?)\]/s ) {     
+    if ($val=~/\/Kids\s*\[\s*(.*?)\]/s ) {#by Stefano Capuzzimato. You can find spaces between "Kids" and "["
         my $kids=$1;
         $kids=~s/\s+/ /gs;
         foreach my $kid (split " R ", $kids) {      
@@ -678,14 +679,14 @@ sub getPages {
             $found.=$f;
             $count+=$c;
         }
-        $pdf=~s/(\D$obj $instnum obj.*?\/Kids \[).*?\]/$1 $found\]/s;
+        $pdf=~s/(\D$obj $instnum obj.*?\/Kids\s*\[).*?\]/$1$found\]/s;#by Stefano Capuzzimato. Between "Kids" and "[" there can be even no space
         $pdf=~s/(\D$obj $instnum obj.*?\/Count )\d+/$1$count/s;
         $found="$obj $instnum R " if $found;
     } else {
         $pageObject{$obj}=push @pages, $obj; # create a hash of all pages
 	    if ( $getPages{$pageObject{$obj}} ) {
 	        $found="$obj $instnum R ";
-	        $count=1; 
+	        $count=1; 
 	        $vars{"PDFPagesFound"}.= $vars{"PDFPagesFound"} ? ", $pageObject{$obj}" : $pageObject{$obj};
 	        $vars{"PDFPageCount"}++;
         }
@@ -738,11 +739,11 @@ Much thanks to:-
  Lyman Byrd for his welcome programming suggestions and editorial comments on the POD.
  Michael Cox for his suggestion of PDFSaveAs and for the time he spent in testing the module.
  Alberto Accomazzi for sharing his time and his knowledge of Unixish PDF voodoo magick.
-
+ Stefano Capuzzimato for correcting some stuff in the regexes he found.
 =head1 COPYRIGHT
 
 Copyright (c) 2003 by Noel Sharrock. All rights reserved.
-
+
 =head1 LICENSE
 
 This package is free software; you can redistribute it and/or modify it under the same terms as Perl itself, 
@@ -758,7 +759,7 @@ without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 
 See the ``GNU General Public License'' for more details.
 
-PDF::Extract - Extracting sub PDF documents from a multipage PDF document
+PDF::Extract - Extracting sub PDF documents from a multipage PDF document
 
 =cut
 
