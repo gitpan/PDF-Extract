@@ -6,14 +6,14 @@ PDF::Extract - Extracting sub PDF documents from a multipage PDF document
 
 =head1 SYNOPSIS
 
- use PDF::Pages;
- $pdf=new PDF::Pages;
+ use PDF::Extract;
+ $pdf=new PDF::Extract;
  $pdf->servePDFExtract( PDFDoc=>"c:/Docs/my.pdf", PDFPages=>"1-3 31-36" );
 
 or 
 
- use PDF::Pages;
- $pdf = new PDF::Pages( PDFDoc=>'C:/my.pdf' );
+ use PDF::Extract;
+ $pdf = new PDF::Extract( PDFDoc=>'C:/my.pdf' );
  $pdf->getPDFExtract( PDFPages=>@PDFPages );
  print "Content-Type text/plain\n\n<pre>",  $pdf->getPDFExtractOut;
  print $pdf->getPDFExtractError;
@@ -54,7 +54,7 @@ pages to extract. There are no default values.
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 my $PDFExtractError;                    # A discription and location of an Error in processing PDF Page
 my $PDFExtractFound;                  # Number of pages found in document

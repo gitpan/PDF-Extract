@@ -1,4 +1,4 @@
-PDF/Extract version 0.01
+PDF/Extract version 1.02
 ========================
 
 PDF Extract is a group of methods that allow the user to quickly grab pages
@@ -34,6 +34,22 @@ To install this module type the following:
 DEPENDENCIES
 
 There are no dependencies
+
+HISTORY
+
+version 1.02
+Fixed a blunder in the Synopsis of the documentation.
+Should have read:-
+
+=head1 SYNOPSIS
+
+ use PDF::Extract;
+ $pdf=new PDF::Extract;
+
+version 1.01
+Original beta version.
+
+
 
 COPYRIGHT AND LICENCE
 
