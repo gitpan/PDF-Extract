@@ -36,9 +36,11 @@ DEPENDENCIES
 There are no dependencies
 
 HISTORY
+version 3.01
+Major upgrade. Now works with PDF 6 and 7
+
 version 2.06
 Stefano Capuzzimato corrected a problem with parsing spaces after endobj
-
 
 version 2.05
 Corrected a problem with the Makefile.pl
