@@ -2,7 +2,7 @@ package PDF::Extract;
 use strict;
 #use warnings;
 use vars qw($VERSION);
-$VERSION = '3.03';
+$VERSION = '3.04';
 
 =head1 NAME
 
@@ -59,8 +59,8 @@ cached and served for a faster PDF web document service with fastServePDFExtract
 =back
 
 These four main methods can be called with or without arguments. The methods 
-will not work unless they know the location of the original PDF document and the 
-pages to extract. There are no default values.
+will not work unless they know the location of the original PDF document. 
+PDFPages defaults to "1". There are no other default values.
 
 There are four other methods that deal with setting and getting the public variables.
 
@@ -87,7 +87,7 @@ setVars is an alias of setPDFExtractVariables
 =cut
 
 
-my ( $pages, $filename, $CatalogPages, $Catalog, $Root, $pdf, $pdfFile, $object, $encryptedPdf, $trailerObject,$fileNumber );
+my ( $pages, $fileNumber, $filename, $CatalogPages, $Catalog, $Root, $pdf, $pdfFile, $object, $encryptedPdf, $trailerObject )=(1,1); #default PDFPages to 1
 my ( @object, @obj, @instnum, @pages ); 
 my ( %vars, %getPages, %pageObject );
 
@@ -314,6 +314,7 @@ This variable contains a list of pages to extract from the original PDF document
 getPDFExtract, savePDFExtract, servePDFExtract and fastServePDFExtract. 
 Use the join function to create a list of pages from an array. 
 Such a an array of pages sent from a multi select box on a web form.
+PDFPages will default to "1" if unset or there is an error processing the pages string.
 
  PDFPages => join( " ", $cgi->param( "PDFPages" )),
 
@@ -407,7 +408,7 @@ The full path to the extracted pdf file can be obtained by -
  $fullpath = $pdf->getVars("PDFCache") ."/". $pdf->getVars("PDFFilename");
  or
  ($path,$filename) = $pdf->getVars("PDFCache","PDFFilename");
-    
+
 =head2 PDFError
 (get only)
 
@@ -504,6 +505,7 @@ sub setEnv {
 		$pages=~s/\-/../g;
 		$pages=~s/ +/,/g;
 		$pages=~s/[^\d,\.]//g;                  # allow only numbers to be processed
+		$pages=1 unless $pages; 				# defaults to 1
         $fileNumber=$pages;
         $fileNumber=~s/,/_/g;
 		foreach my $page ( eval $pages ) {
@@ -530,7 +532,7 @@ sub setEnv {
         $vars{"PDFSaveAs"}=~s/\.pdf$//i;    # just want the name, not the path and not the .pdf tag
         $vars{"PDFSaveAs"}=~s/^.*[\/\\]//;
      }
-    $vars{"PDFFilename"}=$vars{"PDFSaveAs"} ? $vars{"PDFSaveAs"}.".pdf" : "$filename$fileNumber.pdf";
+    $vars{"PDFFilename"}=$vars{"PDFSaveAs"} ? $vars{"PDFSaveAs"}.".pdf" : $filename.($fileNumber||1).'.pdf'; #  Reported bug 41628 - $fileNumber might not be defined. Suggested fix by Patrick Bourdon to avoid warnings
 
     if ( $PDF{"PDFDebug"} ) {
         print "These variables have been set\n";
@@ -565,7 +567,7 @@ sub getDoc {
 	return &error("There is no pdf document to extract pages from",__FILE__,__LINE__) unless $pdfFile;   
 	&getRoot;
 	&getPages($CatalogPages,0);
-	return &error("There are no pages in $filename.pdf that match  '$pages' ",__FILE__,__LINE__) 
+	return &error("There are no pages in $filename.pdf that match  '".((defined $pages) ? $pages : '?')."' ",__FILE__,__LINE__) # Reported bug 41628 - $pages might not be defined.  Suggested fix by Patrick Bourdon to avoid warnings
 	    unless $vars{"PDFPageCount"};
 	&getObj($Root,0);
 	&makePdfDoc;
@@ -655,7 +657,7 @@ sub getObj {
 	        &error("Can't find object $obj $instnum obj  ",__FILE__,__LINE__);
 	    }
     }
-    "$obj 0 R$gd";
+    (defined $gd) ? "$obj 0 R$gd" : "$obj 0 R"; # Reported bugs 38579 & 41628 - $gd might not be defined. Suggested fix by Patrick Bourdon to avoid warnings
 }
 
 sub uri {
@@ -751,7 +753,7 @@ Noel Sharrock E<lt>mailto:nsharrok@lgmedia.com.auE<gt>
 
 PDF::Extract's home page http://www.lgmedia.com.au/page.aspx?ID=8
 
-Forum for users and developers http://www.lgmedia.com.au/PDF/Forum
+Forum for users and developers has been hacked and database no longer exists. There are some sad folk around.
 
 =head1 SUPPORT
 
@@ -764,7 +766,8 @@ Much thanks to:-
  Geert Theys for finding a small bug and supplying an excelent solution.
  Jon Schaeffer for help with finding a solution to a bug in extracting Adobe 6+ pages.
  Dario Santini for reporting a bug at http://rt.cpan.org//Ticket/Display.html?id=33707
- 
+ Patrick Bourdon suggested several fixes for undefind string concatination warnings.
+
 =head1 COPYRIGHT
 
 Copyright (c) 2005 by Noel Sharrock. All rights reserved.
